@@ -5,93 +5,125 @@ VCC is a system that allows you to add a mute and deafen global shortcut to Vesk
 It's basically a set of scripts (`mute.sh` & `deafen.sh`) that you can call from a custom global shortcut in your system to mute and deafen yourself in Vesktop, and it triggers theses actions in Vesktop by injecting a custom Javascript code in the Vencord main file.
 
 # Shortcuts configuration in your system
-You need to configure a custom global shortcut in your system to call the scripts `mute.sh` and `deafen.sh` in `~/.vesktopCustomCommands/` folder.
+
+### Linux
+Configure a custom global shortcut in your system (desktop environment settings, sxhkd, sway/hyprland bind, etc.) to call the scripts in `~/.vesktopCustomCommands/`:
 ```plaintext
 ~/.vesktopCustomCommands/mute.sh
-```
-```plaintext
 ~/.vesktopCustomCommands/deafen.sh
 ```
+
+### Windows
+Choose whichever method fits your setup:
+
+1. **Silent Triggers (Recommended, zero console flashing / instant)**
+   Configure your macro keys, Elgato Stream Deck, or Windows shortcut keys to run:
+   ```cmd
+   wscript.exe //B //Nologo "%USERPROFILE%\.vesktopCustomCommands\mute.vbs"
+   wscript.exe //B //Nologo "%USERPROFILE%\.vesktopCustomCommands\deafen.vbs"
+   ```
+
+2. **AutoHotkey (Ready-to-use global keybindings)**
+   Run `%USERPROFILE%\.vesktopCustomCommands\vesktopShortcuts.ahk`:
+   - `Ctrl + Shift + M` -> Toggle Mute
+   - `Ctrl + Shift + D` -> Toggle Deafen
+   *(Tip: Place a shortcut to `vesktopShortcuts.ahk` in `shell:startup` to run on boot!)*
+
+3. **Batch Files (For Stream Deck, Razer Synapse, Logitech G Hub, Corsair iCUE)**
+   ```cmd
+   "%USERPROFILE%\.vesktopCustomCommands\mute.bat"
+   "%USERPROFILE%\.vesktopCustomCommands\deafen.bat"
+   ```
 
 ---
 
 # Installation
 
 ## Automatic installation
+
+### Linux
 Run this command in your terminal and follow the instructions:
 ```bash
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/NitramO-YT/vesktopCustomCommands/refs/heads/main/install.sh)"
 ```
-Note: If a config file already exists at `~/.vesktopCustomCommands/.config`, the installer preserves it and only updates the `vencord_path` entry if necessary.
+
+### Windows
+Open PowerShell and run:
+```powershell
+irm https://raw.githubusercontent.com/NitramO-YT/vesktopCustomCommands/main/install.ps1 | iex
+```
+*(Or locally from cloned repo: `powershell -ExecutionPolicy Bypass -File .\install.ps1`)*
+
+Note: If a config file already exists at `~/.vesktopCustomCommands/.config` (Linux) or `%USERPROFILE%\.vesktopCustomCommands\.config` (Windows), the installer preserves it and only updates the `vencord_path` entry if necessary.
 
 ### Optional: Automatic repatch
 
 During installation, you can enable an automatic repatch system that periodically checks whether the VCC patch is still present in the Vencord main file and re-applies it if it has been removed (e.g. after an update or a reset of Vencord/Vesktop).
 
 - Why is it needed? Vesktop/Vencord updates or certain startup scenarios can restore the main file to its original state, removing the VCC injection. The auto-repatch ensures your shortcuts keep working without manual intervention.
-- Settings are stored in `~/.vesktopCustomCommands/.config`:
+- Settings are stored in `.config`:
   - `auto_repatch="true|false"` (default: `false`)
   - `auto_restart="true|false"` (default: `false`) – if enabled, Vesktop will be automatically restarted after a repatch. You can toggle this later with the commands below.
-  - `autorepatch_interval="30s|1m|3m"` (default: `30s`) – interval of checks.
-  - A user `systemd` timer runs at the chosen interval when `auto_repatch` is enabled.
+  - `autorepatch_interval="30s|1m|3m"` (default: `30s` on Linux, `1m` on Windows) – interval of checks.
+  - On Linux: A user `systemd` timer runs at the chosen interval.
+  - On Windows: A scheduled task `VesktopCustomCommands-AutoRepatch` runs automatically.
   - To enable auto-repatch :
-  ```bash
-  bash -c "$(curl -fsSL https://raw.githubusercontent.com/NitramO-YT/vesktopCustomCommands/refs/heads/main/dist/vesktopCustomCommands/enable_autorepatch.sh)"
-  ```
+    - Linux:
+      ```bash
+      bash -c "$(curl -fsSL https://raw.githubusercontent.com/NitramO-YT/vesktopCustomCommands/refs/heads/main/dist/vesktopCustomCommands/enable_autorepatch.sh)"
+      ```
+    - Windows:
+      ```powershell
+      powershell -ExecutionPolicy Bypass -File "$env:USERPROFILE\.vesktopCustomCommands\enable_autorepatch.ps1"
+      ```
   - To disable auto-repatch :
-  ```bash
-  bash -c "$(curl -fsSL https://raw.githubusercontent.com/NitramO-YT/vesktopCustomCommands/refs/heads/main/dist/vesktopCustomCommands/disable_autorepatch.sh)"
-  ```
+    - Linux:
+      ```bash
+      bash -c "$(curl -fsSL https://raw.githubusercontent.com/NitramO-YT/vesktopCustomCommands/refs/heads/main/dist/vesktopCustomCommands/disable_autorepatch.sh)"
+      ```
+    - Windows:
+      ```powershell
+      powershell -ExecutionPolicy Bypass -File "$env:USERPROFILE\.vesktopCustomCommands\disable_autorepatch.ps1"
+      ```
 
   - To enable auto-restart (after repatch):
-  ```bash
-  bash -c "$(curl -fsSL https://raw.githubusercontent.com/NitramO-YT/vesktopCustomCommands/refs/heads/main/dist/vesktopCustomCommands/enable_autorestart.sh)"
-  ```
+    - Linux: `enable_autorestart.sh`
+    - Windows: `enable_autorestart.ps1`
   - To disable auto-restart:
-  ```bash
-  bash -c "$(curl -fsSL https://raw.githubusercontent.com/NitramO-YT/vesktopCustomCommands/refs/heads/main/dist/vesktopCustomCommands/disable_autorestart.sh)"
-  ```
+    - Linux: `disable_autorestart.sh`
+    - Windows: `disable_autorestart.ps1`
 
-
-Manual configuration: edit `~/.vesktopCustomCommands/.config` and set `auto_repatch` and `auto_restart`. You can also set `autorepatch_interval` to `"30s"`, `"1m"` or `"3m"`. If you disable it manually, the timer will be stopped on the next install run, or run the disable script above.
+Manual configuration: edit `.config` and set `auto_repatch` and `auto_restart`.
 
 ### Optional: Automatic update
 
-You can enable an automatic update system that periodically checks if a newer version is available on GitHub and updates the necessary files (custom code for Vencord and local scripts like `mute.sh` and `deafen.sh`).
+You can enable an automatic update system that periodically checks if a newer version is available on GitHub and updates the necessary files.
 
-- Settings in `~/.vesktopCustomCommands/.config`:
+- Settings in `.config`:
   - `auto_update="true|false"` (default: `false`)
-  - `auto_update_interval` (default: `15m`) – the timer runs at `autorepatch_interval` if auto-repatch is enabled, otherwise at `auto_update_interval` if only auto-update is enabled.
-- To enable auto-update :
-  ```bash
-  bash -c "$(curl -fsSL https://raw.githubusercontent.com/NitramO-YT/vesktopCustomCommands/refs/heads/main/dist/vesktopCustomCommands/enable_autoupdate.sh)"
-  ```
-- To disable auto-update :
-  ```bash
-  bash -c "$(curl -fsSL https://raw.githubusercontent.com/NitramO-YT/vesktopCustomCommands/refs/heads/main/dist/vesktopCustomCommands/disable_autoupdate.sh)"
-  ```
+- To enable auto-update:
+  - Linux: `enable_autoupdate.sh`
+  - Windows: `enable_autoupdate.ps1`
+- To disable auto-update:
+  - Linux: `disable_autoupdate.sh`
+  - Windows: `disable_autoupdate.ps1`
 
 ## Manual installation
-1. Download the `dist` folder from the repository or its content.
-2. `dist` is separated in two parts:
-    - `vencord` folder contains the files to inject in the Vencord main file.
-    - `vesktopCustomCommands` folder contains the scripts to mute/deafen and the `.config` file.
-3. You can make a backup of your Vencord main file (usually located in `~/.config/Vencord/dist/vencordDesktopMain.js` so `cp ~/.config/Vencord/dist/vencordDesktopMain.js ~/.config/Vencord/dist/vencordDesktopMain.js.bak`) or not, if you want to restore it later you can delete the file and start Vesktop to recreate it.
-4. Inject the content of `vencordDesktopMain_sample.js` in your Vencord main file (usually located in `~/.config/Vencord/dist/vencordDesktopMain.js`):
-    - Insert the entire content of `vencordDesktopMain_sample.js` just before the line `//# sourceURL=` at the end of the file.
-5. Make a dir `vesktopCustomCommands` in your Vencord path (usually located in `~/.config/Vencord/dist/`) and put the file `customCode.js` in it.
-6. Make a dir `~/.vesktopCustomCommands` and put the files `mute.sh` and `deafen.sh` in it.
-7. Add permissions to the scripts `mute.sh` and `deafen.sh`:
-    ```bash
-    chmod +x ~/.vesktopCustomCommands/mute.sh
-    chmod +x ~/.vesktopCustomCommands/deafen.sh
-    ```
-8. Put the `.config` file in `~/.vesktopCustomCommands` and update the `vencord_path` variable with your Vencord path if needed.
-9. Restart Vesktop to apply the changes.
-10. Configure a custom global shortcut in your system to call the scripts `mute.sh` and `deafen.sh` in `~/.vesktopCustomCommands/` folder.
-    - `mute.sh` to mute yourself. `~/.vesktopCustomCommands/mute.sh`
-    - `deafen.sh` to deafen yourself. `~/.vesktopCustomCommands/deafen.sh`
-11. Enjoy your new global shortcuts to mute and deafen yourself!
+
+### Linux
+1. Download the `dist` folder from the repository.
+2. Inject `dist/vencord/vencordDesktopMain_sample.js` into your `vencordDesktopMain.js` (usually `~/.config/Vencord/dist/vencordDesktopMain.js` or in `~/.config/vesktop/sessionData/vencordFiles/`) right before `//# sourceURL=`.
+3. Create folder `vesktopCustomCommands` in your Vencord directory and place `dist/vencord/customCode.js` inside.
+4. Create folder `~/.vesktopCustomCommands`, place `mute.sh`, `deafen.sh`, and `.config` inside, and make them executable (`chmod +x`).
+5. Restart Vesktop.
+
+### Windows
+1. Download the `dist` folder from the repository.
+2. Locate `vencordDesktopMain.js` (typically at `%APPDATA%\vesktop\sessionData\vencordFiles\vencordDesktopMain.js`).
+3. Inject the content of `dist/vencord/vencordDesktopMain_sample.js` right before `//# sourceURL=` at the end of `vencordDesktopMain.js`.
+4. Create a folder `vesktopCustomCommands` in that directory and copy `dist/vencord/customCode.js` into it.
+5. Create `%USERPROFILE%\.vesktopCustomCommands` and copy the Windows scripts (`mute.bat`, `deafen.bat`, `mute.vbs`, `deafen.vbs`, `vesktopShortcuts.ahk`, `.config`) into it.
+6. Restart Vesktop.
 
 ---
 
@@ -99,9 +131,14 @@ You can enable an automatic update system that periodically checks if a newer ve
 
 ## Automatic uninstallation
 
-Run this command in your terminal and follow the instructions:
+### Linux
 ```bash
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/NitramO-YT/vesktopCustomCommands/refs/heads/main/uninstall.sh)"
+```
+
+### Windows
+```powershell
+powershell -ExecutionPolicy Bypass -File .\uninstall.ps1
 ```
 During uninstallation, you'll be asked whether you want to remove EVERYTHING, including your settings (`~/.vesktopCustomCommands/.config`).
 - Answer "y": all files and settings are removed.
@@ -111,6 +148,7 @@ If settings are removed, the auto-repatch service/timer and helper scripts are a
 
 ## Manual uninstallation
 
+### Linux
 1. Remove the custom global shortcuts in your system that call the scripts `mute.sh` and `deafen.sh` in `~/.vesktopCustomCommands/` folder.
 2. Remove the `.config` file in `~/.vesktopCustomCommands`.
 3. Remove the `~/.vesktopCustomCommands` folder.
@@ -118,6 +156,14 @@ If settings are removed, the auto-repatch service/timer and helper scripts are a
 5. Remove the `vesktopCustomCommands` folder in your Vencord path `~/.config/Vencord/dist/`.
 6. Remove the injected code in your Vencord main file (usually located in `~/.config/Vencord/dist/vencordDesktopMain.js`) or replace it with the backup you made if you did. (You can also delete the file and start Vesktop to recreate it).
 7. Restart Vesktop to apply the changes.
+
+### Windows
+1. Remove any custom shortcuts, macro key binds, or AutoHotkey scripts configured to run `mute.bat` / `mute.vbs` / `deafen.bat` / `deafen.vbs`.
+2. Delete the scheduled task if registered: `schtasks /Delete /TN "VesktopCustomCommands-AutoRepatch" /F`.
+3. Remove the `%USERPROFILE%\.vesktopCustomCommands` folder.
+4. Remove `%APPDATA%\vesktop\sessionData\vencordFiles\vesktopCustomCommands` (or your custom Vencord path).
+5. Remove the injected code in `vencordDesktopMain.js` (or restore `vencordDesktopMain.js.bak`).
+6. Restart Vesktop.
 
 ---
 

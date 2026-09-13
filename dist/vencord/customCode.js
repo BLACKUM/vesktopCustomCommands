@@ -18,7 +18,11 @@ button:has(g[clip-path="url(#__lottie_element_42)"])
 
 const fs = require('fs');
 const path = require('path');
-const { BrowserWindow, app } = require('electron');
+const { BrowserWindow, webContents, app } = require('electron');
+
+try {
+    fs.appendFileSync(path.join(__dirname, 'vcc_debug.log'), `[customCode.js] Loaded. __dirname=${__dirname}\n`);
+} catch(e) {}
 
 // === Unified Logger ===
 const LOG_PREFIX = '[VesktopCustomCommands]';
@@ -72,25 +76,102 @@ const logger = {
 logger.info("Custom code executed from customCode.js");
 logger.info("Made with ❤️ by NitramO");
 
-// === Click in Renderer ===
-const clickInRenderer = (selector) => {
-    BrowserWindow.getAllWindows().forEach(win => {
-        const escapedSelector = selector.replace(/`/g, '\\`').replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
-        win.webContents.executeJavaScript(`
+// === Click / Toggle in Renderer ===
+const triggerAction = (type) => {
+    const isMute = type === 'mute';
+    logger.info(`Action: Toggle ${type} triggered`);
+
+    const debugLog = (msg) => {
+        try {
+            fs.appendFileSync(path.join(__dirname, 'vcc_debug.log'), `[${new Date().toISOString()}] ${msg}\n`);
+        } catch (e) {}
+    };
+
+    debugLog(`Triggered action: ${type}`);
+
+    const allWcs = typeof webContents.getAllWebContents === 'function' 
+        ? webContents.getAllWebContents() 
+        : BrowserWindow.getAllWindows().map(w => w.webContents);
+
+    allWcs.forEach((wc, index) => {
+        if (wc.isDestroyed()) return;
+        const url = wc.getURL ? wc.getURL() : '';
+        debugLog(`WebContents ${index} URL: ${url}`);
+
+        wc.executeJavaScript(`
             (function() {
-                const el = document.querySelector(\`${escapedSelector}\`);
-                if (el) {
-                    el.click();
-                    console.log('${LOG_PREFIX}', 'Button clicked!');
-                    return true;
-                } else {
-                    console.warn('${LOG_PREFIX}', 'Button not found');
-                    return false;
+                try {
+                    // Strategy 1: Vencord Webpack Voice Module (Direct toggle)
+                    if (window.Vencord && window.Vencord.Webpack) {
+                        const voiceMod = window.Vencord.Webpack.findByProps("toggleSelfMute");
+                        if (voiceMod) {
+                            if (${isMute}) {
+                                const toggleMute = voiceMod.toggleSelfMute || voiceMod.setSelfMute;
+                                if (typeof toggleMute === 'function') {
+                                    toggleMute.call(voiceMod);
+                                    return 'Toggled mute via Vencord.Webpack';
+                                }
+                            } else {
+                                const toggleDeaf = voiceMod.toggleSelfDeaf || voiceMod.toggleSelfDeafen || voiceMod.setSelfDeaf;
+                                if (typeof toggleDeaf === 'function') {
+                                    toggleDeaf.call(voiceMod);
+                                    return 'Toggled deafen via Vencord.Webpack';
+                                }
+                            }
+                        }
+                    }
+
+                    // Strategy 2: Specific aria-label and DOM selectors (Safe - excludes disconnect)
+                    const selectors = ${isMute} ? [
+                        'button[aria-label*="Mute" i]:not([aria-label*="Disconnect" i])',
+                        'button[aria-label*="Unmute" i]:not([aria-label*="Disconnect" i])',
+                        'button[aria-label*="Micro" i]:not([aria-label*="Disconnect" i])',
+                        'button[aria-label*="Stumm" i]:not([aria-label*="Disconnect" i])',
+                        'button:has(g[clip-path*="lottie_element_5"])'
+                    ] : [
+                        'button[aria-label*="Deafen" i]:not([aria-label*="Disconnect" i])',
+                        'button[aria-label*="Undeafen" i]:not([aria-label*="Disconnect" i])',
+                        'button[aria-label*="Casque" i]:not([aria-label*="Disconnect" i])',
+                        'button[aria-label*="Taub" i]:not([aria-label*="Disconnect" i])',
+                        'button:has(g[clip-path*="lottie_element_42"])'
+                    ];
+
+                    for (const sel of selectors) {
+                        const el = document.querySelector(sel);
+                        if (el) {
+                            el.click();
+                            return 'Clicked element with selector: ' + sel;
+                        }
+                    }
+
+                    // Strategy 3: Search all buttons in document by label
+                    const allButtons = Array.from(document.querySelectorAll('button'));
+                    for (const b of allButtons) {
+                        const label = (b.getAttribute('aria-label') || '').toLowerCase();
+                        if (label.includes('disconnect') || label.includes('hang up') || label.includes('leave')) {
+                            continue; // NEVER click disconnect!
+                        }
+                        if (${isMute} && (label.includes('mute') || label.includes('micro') || label.includes('stumm'))) {
+                            b.click();
+                            return 'Clicked button with label: ' + label;
+                        }
+                        if (!${isMute} && (label.includes('deafen') || label.includes('undeafen') || label.includes('casque') || label.includes('taub'))) {
+                            b.click();
+                            return 'Clicked button with label: ' + label;
+                        }
+                    }
+
+                    return 'Button not found. Total buttons on page: ' + allButtons.length;
+                } catch (err) {
+                    return 'Error: ' + err.message;
                 }
             })();
         `).then(result => {
-            if (result) logger.log('Click successful');
-        }).catch(() => {});
+            debugLog(`Window ${index}: ${result}`);
+            logger.log(`Result: ${result}`);
+        }).catch(err => {
+            debugLog(`Window ${index} executeJavaScript error: ${err.message}`);
+        });
     });
 };
 
@@ -100,11 +181,14 @@ const monitorFile = (filePath, action) => {
         fs.stat(filePath, (err, stats) => {
             if (err) return; // File doesn't exist
 
-            // Check if it's a file, not a directory
             if (!stats.isFile()) {
-                logger.warn(`Ignored: ${filePath} is not a file (possibly a directory)`);
+                logger.warn(`Ignored: ${filePath} is not a file`);
                 return;
             }
+
+            try {
+                fs.appendFileSync(path.join(__dirname, 'vcc_debug.log'), `[customCode.js] Detected file: ${filePath}\n`);
+            } catch(e) {}
 
             logger.log(`File found: ${filePath}`);
             fs.unlink(filePath, (unlinkErr) => {
@@ -125,13 +209,11 @@ const muteFilePath = path.join(__dirname, muteActionFileName);
 const deafenFilePath = path.join(__dirname, deafenActionFileName);
 
 const muteAction = () => {
-    logger.info('Action: Toggle mute triggered');
-    clickInRenderer(muteButtonSelector);
+    triggerAction('mute');
 };
 
 const deafenAction = () => {
-    logger.info('Action: Toggle deafen triggered');
-    clickInRenderer(deafenButtonSelector);
+    triggerAction('deafen');
 };
 
 // === Start monitoring ===
